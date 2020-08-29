@@ -1,0 +1,4 @@
+cluster_name: alpine-cluster
+rke_ssh_user: isitar
+rke_kubernetes_version: 1.19
+rke_config_dir: "{{ ansible_env.HOME | default(ansible_env.PWD) | default('/root') }}/rke"

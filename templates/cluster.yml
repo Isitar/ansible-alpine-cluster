@@ -1,0 +1,31 @@
+cluster_name: "{{ cluster_name }}"
+
+kubernetes_version: "{{ rke_kubernetes_version }}"
+
+nodes:
+{% for host in groups['worker'] %}
+  - hostname_override: "{{ hostvars[host]['ansible_hostname'] }}"
+    address: "{{ hostvars[host]['ansible_' + ansible_default_ipv4.interface].ipv4.address }}"
+    user: {{ rke_ssh_user }}
+    role:
+     - worker
+    ssh_key_path: ~/.ssh/id_rsa
+{% endfor %}
+
+{% for host in groups['control'] %}
+  - hostname_override: "{{ hostvars['host']['ansible_hostname'] }}"
+    address: "{{ hostvars[host]['ansible_' + ansible_default_ipv4.interface].ipv4.address }}"
+    user: {{ rke_ssh_user }}
+    role:
+    - controlplane
+    ssh_key_path: ~/.ssh/id_rsa
+{% endfor %}
+
+{% for host in groups['etcd'] %}
+  - hostname_override: "{{ hostvars['host']['ansible_hostname'] }}"
+    address: "{{ hostvars[host]['ansible_' + ansible_default_ipv4.interface].ipv4.address }}"
+    user: {{ rke_ssh_user }}
+    role:
+     - etcd
+    ssh_key_path: ~/.ssh/id_rsa
+{% endfor %}

@@ -1,0 +1,83 @@
+---
+- name: Setup rke hub
+  hosts:
+  - hub
+  handlers:
+  - name: rke_up
+    shell: |
+      set -euo pipefail
+      rke up | tee /var/log/rke-up.log
+    args:
+      chdir: "{{ rke_config_dir }}"
+
+  tasks:
+  - name: Download RKE binary
+    get_url:
+      url: "{{ rke_binary_url }}"
+      checksum: "{{ rke_binary_checksum }}"
+      dest: /usr/local/bin/rke
+      mode: "+rx"
+    notify: rke_up
+
+  - name: Ensure config directory exists
+    file:
+      path: "{{ rke_config_dir }}"
+      state: directory
+
+  - name: Create/update RKE config file
+    template:
+      src: templates/rke_cluster.yml
+      dest: "{{ rke_config_dir }}/cluster.yml"
+      mode: u=rw,g=r,o=
+    notify: rke_up
+
+  - meta: flush_handlers
+
+  - name: Install kubectl
+    get_url:
+      url: https://storage.googleapis.com/kubernetes-release/release/{{ rke_kubernetes_version.split('-', 1)[0] }}/bin/linux/amd64/kubectl
+      dest: /usr/local/bin/kubectl
+      mode: "+rx"
+
+  - name: Ensure $HOME/.kube exists
+    file:
+      path: "{{ ansible_env.HOME }}/.kube"
+      state: directory
+
+  - name: Copy kubeconfig to default location
+    copy:
+      remote_src: yes
+      src: "{{ rke_config_dir }}/kube_config_cluster.yml"
+      dest: "{{ ansible_env.HOME }}/.kube/config"
+
+- name: Setup nodes
+  hosts:
+  - cluster
+  tasks:
+  - name: enable community repo
+    replace:
+      path: /etc/apk/repositories
+      regexp: '^#(.*v\d.*\/community)'
+      replace: '\1'
+  - name: install docker
+    apk:
+      name: docker
+      update_cache: true
+      state: latest
+    become: true
+  - name: startup docker and set boot enabled
+    service:
+      name: docker
+      enabled: true
+      state: started
+
+  - name: Remove swap volumes from /etc/fstab
+    lineinfile:
+      path: /etc/fstab
+      state: absent
+      # This should match all lines with an fstype of "swap"
+      regexp: '^[^\s]+\s+[^\s]+\s+swap\s+'
+    register: remove_swap_volumes
+  - name: Disable swap
+    command: swapoff --all
+    when: remove_swap_volumes is changed
