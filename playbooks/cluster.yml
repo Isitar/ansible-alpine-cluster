@@ -1,0 +1,67 @@
+---
+- name: Setup nodes
+  hosts:
+  - cluster
+  become: true
+  handlers:
+  - name: swapoff
+    command: swapoff -a
+  - name: restart_sshd
+    service:
+      name: sshd
+      state: restarted
+  - name: restart_docker
+    service:
+      name: docker
+      state: restarted
+
+  tasks:
+  - name: enable community repo
+    replace:
+      path: /etc/apk/repositories
+      regexp: '^#(.*v\d.*\/community)'
+      replace: '\1'
+  # ssh prequisites
+  - name: Add tcpforwarding to nodes
+    lineinfile:
+      path: /etc/ssh/sshd_config
+      state: present
+      regexp: '^AllowTcpForwarding '
+      line: "AllowTcpForwarding yes"
+    notify: restart_sshd
+
+  # docker
+  - name: install docker
+    apk:
+      name: docker
+      update_cache: true
+      state: latest
+  - name: create docker group
+    group:
+      name: docker
+      state: present
+  - name: add user to docker group
+    user:
+      name: "{{ ansible_user }}"
+      groups: docker
+      append: true
+  - name: make mount rshared
+    lineinfile:
+      path: /etc/init.d/docker
+      regexp: '^\tmount --make-rshared \/'
+      insertafter: 'start_pre\(\) {'
+      line: "\tmount --make-rshared /"
+    notify: restart_docker
+  - name: startup docker and set boot enabled
+    service:
+      name: docker
+      enabled: true
+      state: started
+  # swap handling
+  - name: Remove swap volumes from /etc/fstab
+    lineinfile:
+      path: /etc/fstab
+      state: absent
+      # This should match all lines with an fstype of "swap"
+      regexp: '^[^\s]+\s+[^\s]+\s+swap\s+'
+    notify: swapoff

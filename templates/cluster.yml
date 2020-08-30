@@ -4,28 +4,31 @@ kubernetes_version: "{{ rke_kubernetes_version }}"
 
 nodes:
 {% for host in groups['worker'] %}
-  - hostname_override: "{{ hostvars[host]['ansible_hostname'] }}"
+  - hostname_override: "{{ hostvars[host]['ansible_hostname'] | upper }}"
     address: "{{ hostvars[host]['ansible_' + ansible_default_ipv4.interface].ipv4.address }}"
     user: {{ rke_ssh_user }}
     role:
      - worker
-    ssh_key_path: ~/.ssh/id_rsa
+    docker_socket: /var/run/docker.sock
 {% endfor %}
 
 {% for host in groups['control'] %}
-  - hostname_override: "{{ hostvars['host']['ansible_hostname'] }}"
+  - hostname_override: "{{ hostvars[host]['ansible_hostname'] | upper }}"
     address: "{{ hostvars[host]['ansible_' + ansible_default_ipv4.interface].ipv4.address }}"
     user: {{ rke_ssh_user }}
     role:
     - controlplane
-    ssh_key_path: ~/.ssh/id_rsa
+    docker_socket: /var/run/docker.sock
 {% endfor %}
 
 {% for host in groups['etcd'] %}
-  - hostname_override: "{{ hostvars['host']['ansible_hostname'] }}"
+  - hostname_override: "{{ hostvars[host]['ansible_hostname'] | upper }}"
     address: "{{ hostvars[host]['ansible_' + ansible_default_ipv4.interface].ipv4.address }}"
     user: {{ rke_ssh_user }}
     role:
      - etcd
-    ssh_key_path: ~/.ssh/id_rsa
+    docker_socket: /var/run/docker.sock
 {% endfor %}
+
+ssh_key_path: {{ ansible_env.HOME }}/.ssh/id_rsa
+ssh_agent_auth: false

@@ -1,18 +1,6 @@
 - hosts: hub
-  vars_files:
-  - vars/default.yml
-  pre_tasks:
-  - name: Gather facts from all hosts
-    setup:
-    delegate_to: "{{ item }}"
-    delegate_facts: True
-    when: hostvars[item]['ansible_default_ipv4'] is not defined
-    with_items: "{{ groups['all'] }}"
 
   tasks:
-    - debug: var=hostvars['10.17.0.10']
-    - name: Create/update RKE config file
-      template:
-        src: templates/cluster.yml
-        dest: "{{ rke_config_dir }}/cluster.yml"
-        mode: u=rw,g=r,o=
+
+
+    - debug: var=role_path
